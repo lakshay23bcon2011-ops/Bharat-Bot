@@ -117,7 +117,19 @@ class BrowserController:
             logger.info(f"🎵 Intercepted audio URL: {url}")
             self._intercepted_audio_url = url
 
-    def get_intercepted_audio_url(self, wait_seconds: int = 8) -> str | None:
+    def get_audio_url_from_dom(self) -> str:
+        try:
+            element = self.page.query_selector("audio")
+            if element:
+                src = element.get_attribute("src")
+                if src:
+                    logger.info(f"🎵 Found audio URL in DOM: {src}")
+                    return src
+        except Exception:
+            pass
+        return None
+
+    def get_intercepted_audio_url(self, wait_seconds: int = 8) -> str:
         start_time = time.time()
         while time.time() - start_time < wait_seconds:
             if self._intercepted_audio_url: return self._intercepted_audio_url
@@ -159,7 +171,7 @@ class BrowserController:
             if text:
                 result["passage"] = text
                 break
-        question_selectors = [".question", ".question-text", "h4.q-text", ".quiz-question"]
+        question_selectors = ["p.text-base.font-medium", ".question", ".question-text", "h4.q-text", ".quiz-question"]
         for sel in question_selectors:
             text = self.get_text(sel)
             if text:

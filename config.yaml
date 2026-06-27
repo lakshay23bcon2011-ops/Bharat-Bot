@@ -63,10 +63,11 @@ selectors:
     textarea: "textarea[placeholder*='Start writing']"
     check_button: "button:has-text('Check')"
     continue_button: "button:has-text('Continue')"
-    close_button: "button[hint='Close practice']"
+    close_button: "button[aria-label='Close practice'], button[hint='Close practice']"
     exit_button: "button:has-text('Exit')"
-    play_audio: "button[hint='Play audio']"
+    play_audio: "button[aria-label='Play audio'], button[hint='Play audio']"
     option_selectors:
+      - "div.cursor-pointer.shadow-md"
       - ".option"
       - "div[role='button']"
       - ".choice"
