@@ -36,18 +36,22 @@ class Transcriber:
                 logger.info(f"File size {file_size_mb:.2f}MB exceeds limit. Chunking...")
                 return self._transcribe_chunks(audio_file_path)
             
-            with open(audio_file_path, "rb") as audio_file:
-                transcription = self.client.audio.transcriptions.create(
-                    file=(Path(audio_file_path).name, audio_file.read()),
-                    model=self.model,
-                    language="en",
-                    response_format="text",
-                    temperature=0.0
-                )
-            return transcription.strip()
+            return self._execute_transcription(audio_file_path)
         except Exception as e:
             logger.error(f"Transcription failed: {e}")
             return ""
+
+    def _execute_transcription(self, audio_file_path: str) -> str:
+        """Internal method to call Groq API for transcription."""
+        with open(audio_file_path, "rb") as audio_file:
+            transcription = self.client.audio.transcriptions.create(
+                file=(Path(audio_file_path).name, audio_file.read()),
+                model=self.model,
+                language="en",
+                response_format="text",
+                temperature=0.0
+            )
+        return transcription.strip()
 
     def _transcribe_chunks(self, audio_file_path: str) -> str:
         """Splits audio into 10-minute chunks and transcribes each."""
@@ -67,7 +71,7 @@ class Transcriber:
             
             for chunk in chunks:
                 logger.info(f"Transcribing chunk: {chunk.name}")
-                chunk_text = self.transcribe(str(chunk))
+                chunk_text = self._execute_transcription(str(chunk))
                 if chunk_text:
                     full_transcript.append(chunk_text)
                 chunk.unlink() # Delete chunk after processing
