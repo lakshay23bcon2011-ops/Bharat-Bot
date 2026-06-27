@@ -1,0 +1,78 @@
+# ─── Browser Settings ───────────────────────────────────────────────
+browser:
+  headless: false          # false = you can see the browser (good for debugging)
+  slow_mo: 50              # milliseconds between actions (helps with slow pages)
+  base_url: "https://corporate.bharatenglish.org"
+  timeout: 30000           # max wait time for elements in milliseconds
+
+# ─── User Credentials ───────────────────────────────────────────────
+credentials:
+  username: "akshay.23bcon1538@jecrcu.edu.in"
+  password: "password@899"
+
+# ─── Groq AI Model Configuration ────────────────────────────────────
+ai:
+  # Text generation model (FREE on Groq — best general purpose model)
+  chat_model: "llama-3.3-70b-versatile"
+  
+  # Audio transcription model (FREE — whisper-large-v3-turbo is faster than v3)
+  stt_model: "whisper-large-v3-turbo"
+  
+  # Text-to-speech model (FREE — Orpheus is Groq's native TTS)
+  tts_model: "canopylabs/orpheus-v1-english"
+  tts_voice: "austin"      # Options: austin, brianna, jedediah, mckenna, sterling, orion
+  
+  # Controls how creative/random the LLM answers are (0.0 = focused, 1.0 = creative)
+  temperature: 0.3
+  max_tokens: 1000
+
+# ─── UI Selectors ───────────────────────────────────────────────────
+selectors:
+  login:
+    username_input: "#username"
+    password_input: "#password"
+    signin_button: "button:has-text('Sign in')"
+    error_message: ".error-message, .alert-danger"
+
+  navigation:
+    sidebar_home: "a:has-text('Home')"
+    sidebar_ai_bet: "a:has-text('AI Bet')"
+    sidebar_ai_fluentedge: "a:has-text('AI FluentEdge')"
+    sidebar_reports: "a:has-text('Reports')"
+
+  fluentedge:
+    listening_start: "h2:has-text('Listening') + p + button"
+    speaking_start: "h2:has-text('Speaking') + p + button"
+    reading_start: "h2:has-text('Reading') + p + button"
+    writing_start: "h2:has-text('Writing') + p + button"
+
+  levels:
+    start_button: "button:has-text('Start')"
+    revisit_button: "button:has-text('Revisit')"
+
+  units:
+    start_learning: "button:has-text('Start Learning')"
+    review: "button:has-text('Review')"
+
+  lessons:
+    practice_button: "button:has-text('Practice')"
+    learn_button: "button:has-text('Learn')"
+
+  exam:
+    textarea: "textarea[placeholder*='Start writing']"
+    check_button: "button:has-text('Check')"
+    continue_button: "button:has-text('Continue')"
+    close_button: "button[hint='Close practice']"
+    exit_button: "button:has-text('Exit')"
+    play_audio: "button[hint='Play audio']"
+    option_selectors:
+      - ".option"
+      - "div[role='button']"
+      - ".choice"
+      - "li.answer"
+      - "button.option-btn"
+
+# ─── Paths ──────────────────────────────────────────────────────────
+paths:
+  temp_audio_dir: "./temp"
+  log_file: "./logs/bot.log"
