@@ -20,6 +20,6 @@
 - [x] Add robust retry logic for each task handler
 - [x] Create separate task handler files for better organization
 
-## 📈 Future Enhancements
-- [ ] Integrate virtual microphone injection for Speaking tasks
-- [ ] Add audio chunking for large listening files
+## 🚀 Completed Enhancements
+- [x] Integrate virtual microphone injection for Speaking tasks
+- [x] Add audio chunking for large listening files

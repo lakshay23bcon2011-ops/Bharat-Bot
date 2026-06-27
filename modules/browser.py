@@ -19,10 +19,18 @@ class BrowserController:
     def start(self):
         logger.info("Starting browser...")
         self._playwright = sync_playwright().start()
+        launch_args = ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]
+        
+        # Check for virtual mic file
+        mic_file = self.browser_cfg.get("virtual_mic_file")
+        if mic_file and Path(mic_file).exists():
+            launch_args.append(f"--use-file-for-fake-audio-capture={mic_file}")
+            logger.info(f"Using virtual microphone file: {mic_file}")
+
         self._browser = self._playwright.chromium.launch(
             headless=self.browser_cfg.get("headless", False),
             slow_mo=self.browser_cfg.get("slow_mo", 50),
-            args=["--no-sandbox"]
+            args=launch_args
         )
         context = self._browser.new_context(accept_downloads=True)
         self.page = context.new_page()
@@ -98,14 +106,16 @@ class BrowserController:
 
     def setup_audio_interception(self):
         self._intercepted_audio_url = None
-        def handle_response(response):
-            url = response.url
-            content_type = response.headers.get("content-type", "")
-            is_audio = any(ext in url.lower() for ext in [".mp3", ".wav", ".ogg", ".webm", ".m4a", ".aac"]) or "audio/" in content_type
-            if is_audio and response.status == 200:
-                logger.info(f"🎵 Intercepted audio URL: {url}")
-                self._intercepted_audio_url = url
-        self.page.on("response", handle_response)
+        self._audio_listener = lambda response: self._handle_audio_response(response)
+        self.page.on("response", self._audio_listener)
+
+    def _handle_audio_response(self, response):
+        url = response.url
+        content_type = response.headers.get("content-type", "")
+        is_audio = any(ext in url.lower() for ext in [".mp3", ".wav", ".ogg", ".webm", ".m4a", ".aac"]) or "audio/" in content_type
+        if is_audio and response.status == 200:
+            logger.info(f"🎵 Intercepted audio URL: {url}")
+            self._intercepted_audio_url = url
 
     def get_intercepted_audio_url(self, wait_seconds: int = 8) -> str | None:
         start_time = time.time()
@@ -115,7 +125,9 @@ class BrowserController:
         return None
 
     def remove_audio_interception(self):
-        self.page.remove_listener("response", lambda r: None)
+        if hasattr(self, "_audio_listener"):
+            self.page.remove_listener("response", self._audio_listener)
+            delattr(self, "_audio_listener")
         self._intercepted_audio_url = None
 
     def find_and_click_option(self, option_text: str) -> bool:

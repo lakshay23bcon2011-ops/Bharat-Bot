@@ -19,8 +19,21 @@ def handle_speaking_task(browser, ai, speaker, config):
             if not wav_path:
                 continue
                 
-            speaker.play_in_browser(browser.page, wav_path)
-            browser.wait(1500)
+            # Use virtual mic injection for speaking tasks
+            speaker.inject_mic(browser, wav_path)
+            
+            # Click record button if it exists
+            mic_sel = config["selectors"]["exam"].get("mic_button", "button[hint='Record']")
+            if browser.element_exists(mic_sel):
+                browser.click(mic_sel)
+                # Wait for the duration of the audio + some buffer
+                import wave
+                with wave.open(wav_path, 'rb') as wf:
+                    duration = wf.getnframes() / float(wf.getframerate())
+                browser.wait(int(duration * 1000) + 2000)
+                # Click stop if needed or wait for auto-stop
+                if browser.element_exists(mic_sel):
+                    browser.click(mic_sel)
             
             if browser.element_exists(sel.get("continue_button", "button:has-text('Continue')")):
                 browser.click(sel["continue_button"])

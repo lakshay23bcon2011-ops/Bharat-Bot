@@ -28,7 +28,14 @@ class Transcriber:
             return None
 
     def transcribe(self, audio_file_path: str) -> str:
+        """Transcribes audio file, chunking it if it's too large."""
         try:
+            file_size_mb = os.path.getsize(audio_file_path) / (1024 * 1024)
+            # Groq limit is 25MB, let's use 20MB as safety
+            if file_size_mb > 20:
+                logger.info(f"File size {file_size_mb:.2f}MB exceeds limit. Chunking...")
+                return self._transcribe_chunks(audio_file_path)
+            
             with open(audio_file_path, "rb") as audio_file:
                 transcription = self.client.audio.transcriptions.create(
                     file=(Path(audio_file_path).name, audio_file.read()),
@@ -40,6 +47,34 @@ class Transcriber:
             return transcription.strip()
         except Exception as e:
             logger.error(f"Transcription failed: {e}")
+            return ""
+
+    def _transcribe_chunks(self, audio_file_path: str) -> str:
+        """Splits audio into 10-minute chunks and transcribes each."""
+        try:
+            import subprocess
+            output_pattern = str(Path(self.temp_dir) / "chunk_%03d.mp3")
+            # Split into 10 minute (600s) chunks
+            cmd = [
+                "ffmpeg", "-i", audio_file_path, 
+                "-f", "segment", "-segment_time", "600", 
+                "-c", "copy", output_pattern
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+            
+            chunks = sorted(Path(self.temp_dir).glob("chunk_*.mp3"))
+            full_transcript = []
+            
+            for chunk in chunks:
+                logger.info(f"Transcribing chunk: {chunk.name}")
+                chunk_text = self.transcribe(str(chunk))
+                if chunk_text:
+                    full_transcript.append(chunk_text)
+                chunk.unlink() # Delete chunk after processing
+                
+            return " ".join(full_transcript)
+        except Exception as e:
+            logger.error(f"Chunked transcription failed: {e}")
             return ""
 
     def download_and_transcribe(self, audio_url: str) -> str:
