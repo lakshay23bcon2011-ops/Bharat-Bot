@@ -12,12 +12,14 @@
 - [x] Initial push to private GitHub repository
 
 ## 🛠️ In Progress
-- [ ] Testing the full flow on the platform
-- [ ] Refining selectors for edge cases
+- [x] Testing the full flow on the platform
+- [x] Refining selectors for edge cases
 
-## 📈 Future Enhancements
+## 🛠️ In Progress
 - [ ] Implement dynamic selector detection (semantic selectors)
 - [ ] Add robust retry logic for each task handler
+- [ ] Create separate task handler files for better organization
+
+## 📈 Future Enhancements
 - [ ] Integrate virtual microphone injection for Speaking tasks
 - [ ] Add audio chunking for large listening files
-- [ ] Create separate task handler files for better organization
