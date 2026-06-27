@@ -19,6 +19,7 @@ ai:
   stt_model: "whisper-large-v3-turbo"
   
   # Text-to-speech model (FREE — Orpheus is Groq's native TTS)
+  # NOTE: You must accept terms at https://console.groq.com/playground?model=canopylabs%2Forpheus-v1-english
   tts_model: "canopylabs/orpheus-v1-english"
   tts_voice: "austin"      # Options: austin, brianna, jedediah, mckenna, sterling, orion
   

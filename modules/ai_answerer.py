@@ -37,12 +37,27 @@ class AIAnswerer:
     def answer_mcq(self, question: str, options: list[str], context: str = "") -> str:
         options_text = "\n".join([f"  {i+1}. {opt}" for i, opt in enumerate(options)])
         context_section = f"\n\nContext/Passage:\n{context}\n" if context else ""
-        system_prompt = "Reply with ONLY the exact text of the correct option — nothing else."
+        system_prompt = "Reply with ONLY the exact text of the correct option — nothing else. Do not include the option number."
         user_prompt = f"Question: {question}{context_section}\nOptions:\n{options_text}\n\nWhich option is correct?"
         answer = self._call_groq(system_prompt, user_prompt)
+        
+        # Clean the answer
+        clean_answer = answer.strip().lower()
+        if clean_answer.endswith('.'): clean_answer = clean_answer[:-1]
+        
+        # Try exact match or partial match
         for option in options:
-            if answer.lower() in option.lower() or option.lower() in answer.lower():
+            if clean_answer == option.lower() or clean_answer in option.lower():
                 return option
+        
+        # Try to extract number if AI returned something like "3. Paris" or just "3"
+        import re
+        match = re.search(r'^\d+', clean_answer)
+        if match:
+            idx = int(match.group()) - 1
+            if 0 <= idx < len(options):
+                return options[idx]
+                
         return answer
 
     def generate_speech_text(self, prompt: str) -> str:
