@@ -16,9 +16,9 @@
 - [x] Refining selectors for edge cases
 
 ## 🛠️ In Progress
-- [ ] Implement dynamic selector detection (semantic selectors)
-- [ ] Add robust retry logic for each task handler
-- [ ] Create separate task handler files for better organization
+- [x] Implement dynamic selector detection (semantic selectors)
+- [x] Add robust retry logic for each task handler
+- [x] Create separate task handler files for better organization
 
 ## 📈 Future Enhancements
 - [ ] Integrate virtual microphone injection for Speaking tasks

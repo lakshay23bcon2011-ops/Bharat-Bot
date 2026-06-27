@@ -1,0 +1,44 @@
+import logging
+
+def handle_listening_task(browser, ai, transcriber, config):
+    logger = logging.getLogger("BharatBot")
+    logger.info("Handling Listening Task...")
+    sel = config["selectors"]["exam"]
+    
+    for attempt in range(3):
+        try:
+            browser.setup_audio_interception()
+            if not browser.element_exists(sel["play_audio"]):
+                continue
+                
+            browser.click(sel["play_audio"])
+            audio_url = browser.get_intercepted_audio_url(wait_seconds=10)
+            if not audio_url:
+                continue
+                
+            transcription = transcriber.download_and_transcribe(audio_url)
+            if not transcription:
+                continue
+                
+            content = browser.get_reading_content()
+            correct_option = ai.answer_mcq(content.get("question", ""), content.get("options", []), transcription)
+            
+            if not correct_option or not browser.find_and_click_option(correct_option):
+                continue
+                
+            browser.wait(1000)
+            browser.click(sel["check_button"])
+            browser.wait(2000)
+            
+            if browser.element_exists(sel["continue_button"]):
+                browser.click(sel["continue_button"])
+                browser.remove_audio_interception()
+                transcriber.cleanup()
+                logger.info("Listening task completed.")
+                return True
+        except Exception as e:
+            logger.error(f"Attempt {attempt+1} failed: {e}")
+            browser.remove_audio_interception()
+            browser.wait(2000)
+            
+    return False
