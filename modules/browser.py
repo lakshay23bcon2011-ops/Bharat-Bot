@@ -85,7 +85,7 @@ class BrowserController:
 
     def get_text(self, selector: str, default: str = "") -> str:
         try:
-            self.page.wait_for_selector(selector, state="visible", timeout=10000)
+            self.page.wait_for_selector(selector, state="visible", timeout=500)
             return self.page.inner_text(selector).strip()
         except Exception:
             return default
@@ -142,18 +142,57 @@ class BrowserController:
             delattr(self, "_audio_listener")
         self._intercepted_audio_url = None
 
-    def find_and_click_option(self, option_text: str) -> bool:
+    def find_and_click_option(self, target_text: str) -> bool:
+        import difflib
         option_selectors = self.selectors.get("exam", {}).get("option_selectors", [".option", "div[role='button']", ".choice"])
-        for selector in option_selectors:
+        
+        target_clean = " ".join(target_text.strip().lower().split())
+        best_match = None
+        best_ratio = 0.0
+        best_element = None
+        
+        for sel in option_selectors:
+            elements = self.page.query_selector_all(sel)
+            for el in elements:
+                el_text = " ".join(el.inner_text().strip().lower().split())
+                
+                # Check exact or substring match first
+                if target_clean in el_text or el_text in target_clean:
+                    best_ratio = 1.0
+                    best_element = el
+                    best_match = el.inner_text().strip()
+                    break
+                    
+                # Otherwise, calculate similarity ratio
+                ratio = difflib.SequenceMatcher(None, target_clean, el_text).ratio()
+                if ratio > best_ratio:
+                    best_ratio = ratio
+                    best_element = el
+                    best_match = el.inner_text().strip()
+            
+            if best_ratio == 1.0:
+                break
+                
+        # If we have a decent match (> 50% similarity)
+        if best_element and best_ratio > 0.5:
             try:
-                elements = self.page.query_selector_all(selector)
-                for element in elements:
-                    text = element.inner_text().strip()
-                    if option_text.lower() in text.lower() or text.lower() in option_text.lower():
-                        logger.info(f"Found matching option: '{text}' — clicking it.")
-                        element.click()
-                        return True
-            except Exception: continue
+                logger.info(f"Found matching option (ratio {best_ratio:.2f}): '{best_match}' — clicking it.")
+                best_element.click()
+                return True
+            except Exception:
+                pass
+                
+        # Fallback: Just click the first option so we don't get permanently stuck
+        for sel in option_selectors:
+            elements = self.page.query_selector_all(sel)
+            if elements:
+                try:
+                    logger.warning(f"No good match found for '{target_text}'. Clicking first option as fallback.")
+                    elements[0].click()
+                    return True
+                except Exception:
+                    pass
+                    
         return False
 
     def get_writing_prompt(self) -> str:

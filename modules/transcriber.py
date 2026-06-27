@@ -57,6 +57,10 @@ class Transcriber:
         """Splits audio into 10-minute chunks and transcribes each."""
         try:
             import subprocess
+            import shutil
+            if not shutil.which("ffmpeg"):
+                raise EnvironmentError("ffmpeg is not installed or not in PATH. Required for audio chunking.")
+                
             output_pattern = str(Path(self.temp_dir) / "chunk_%03d.mp3")
             # Split into 10 minute (600s) chunks
             cmd = [

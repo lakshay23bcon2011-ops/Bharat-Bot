@@ -31,25 +31,7 @@ class Speaker:
             logger.error(f"TTS failed: {e}")
             return None
 
-    def inject_mic(self, browser_controller, wav_file_path: str) -> bool:
-        """
-        Restarts the browser with the given WAV file as a virtual microphone input.
-        """
-        try:
-            logger.info(f"Injecting {wav_file_path} as virtual microphone...")
-            
-            # Update config to use this file
-            browser_controller.browser_cfg["virtual_mic_file"] = wav_file_path
-            
-            # Restart browser
-            browser_controller.close()
-            browser_controller.start()
-            browser_controller.login()
-            
-            return True
-        except Exception as e:
-            logger.error(f"Mic injection failed: {e}")
-            return False
+
 
     def play_in_browser(self, page, wav_file_path: str) -> bool:
         # Keep existing playback for fallback or simultaneous output

@@ -1,7 +1,6 @@
 import logging
 
-def handle_speaking_task(browser, ai, speaker, config):
-    logger = logging.getLogger("BharatBot")
+def handle_speaking_task(browser, ai, speaker, config, logger):
     logger.info("Handling Speaking Task...")
     sel = config["selectors"]["exam"]
     
@@ -19,23 +18,17 @@ def handle_speaking_task(browser, ai, speaker, config):
             if not wav_path:
                 continue
                 
-            # Use virtual mic injection for speaking tasks
-            speaker.inject_mic(browser, wav_path)
-            
             # Click record button if it exists
             mic_sel = config["selectors"]["exam"].get("mic_button", "button[hint='Record']")
             if browser.element_exists(mic_sel):
                 browser.click(mic_sel)
-                # Wait for the duration of the audio + some buffer
-                import wave
-                with wave.open(wav_path, 'rb') as wf:
-                    duration = wf.getnframes() / float(wf.getframerate())
-                browser.wait(int(duration * 1000) + 2000)
+                # Play audio directly in the browser context (blocks until finished)
+                speaker.play_in_browser(browser.page, wav_path)
                 # Click stop if needed or wait for auto-stop
                 if browser.element_exists(mic_sel):
-                    browser.click(mic_sel)
+                    browser.click(sel["check_button"])
             
-            if browser.element_exists(sel.get("continue_button", "button:has-text('Continue')")):
+            if browser.element_exists(sel.get("continue_button", "button:has-text('Continue')"), timeout=10000):
                 browser.click(sel["continue_button"])
             elif browser.element_exists(sel.get("check_button", "button:has-text('Check')")):
                 browser.click(sel["check_button"])
@@ -46,6 +39,6 @@ def handle_speaking_task(browser, ai, speaker, config):
         except Exception as e:
             logger.error(f"Attempt {attempt+1} failed: {e}")
             speaker.cleanup()
-            browser.wait(2000)
+            browser.page.wait_for_timeout(2000) # Only used for error backoff
             
     return False

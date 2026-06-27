@@ -1,14 +1,9 @@
 # ─── Browser Settings ───────────────────────────────────────────────
 browser:
-  headless: false          # false = you can see the browser (good for debugging)
-  slow_mo: 50              # milliseconds between actions (helps with slow pages)
+  headless: false          # true = run invisibly for max speed
+  slow_mo: 0               # milliseconds between actions (0 = max speed)
   base_url: "https://corporate.bharatenglish.org"
   timeout: 30000           # max wait time for elements in milliseconds
-
-# ─── User Credentials ───────────────────────────────────────────────
-credentials:
-  username: "akshay.23bcon1538@jecrcu.edu.in"
-  password: "password@899"
 
 # ─── Groq AI Model Configuration ────────────────────────────────────
 ai:
@@ -61,8 +56,9 @@ selectors:
 
   exam:
     textarea: "textarea[placeholder*='Start writing']"
+    mic_button: "button[hint='Record']"
     check_button: "button:has-text('Check')"
-    continue_button: "button:has-text('Continue')"
+    continue_button: "button:has-text('Continue'), button:has-text('Submit'), button:has-text('Next')"
     close_button: "button[aria-label='Close practice'], button[hint='Close practice']"
     exit_button: "button:has-text('Exit')"
     play_audio: "button[aria-label='Play audio'], button[hint='Play audio']"

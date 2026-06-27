@@ -1,7 +1,6 @@
 import logging
 
-def handle_listening_task(browser, ai, transcriber, config):
-    logger = logging.getLogger("BharatBot")
+def handle_listening_task(browser, ai, transcriber, config, logger):
     logger.info("Handling Listening Task...")
     sel = config["selectors"]["exam"]
     
@@ -40,11 +39,9 @@ def handle_listening_task(browser, ai, transcriber, config):
                 logger.warning(f"Failed to find and click option matching: {correct_option}")
                 continue
                 
-            browser.wait(1000)
             browser.click(sel["check_button"])
-            browser.wait(2000)
             
-            if browser.element_exists(sel["continue_button"]):
+            if browser.element_exists(sel["continue_button"], timeout=10000):
                 browser.click(sel["continue_button"])
                 browser.remove_audio_interception()
                 transcriber.cleanup()
@@ -53,6 +50,6 @@ def handle_listening_task(browser, ai, transcriber, config):
         except Exception as e:
             logger.error(f"Attempt {attempt+1} failed: {e}")
             browser.remove_audio_interception()
-            browser.wait(2000)
+            browser.page.wait_for_timeout(2000) # Error backoff
             
     return False
