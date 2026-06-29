@@ -270,7 +270,7 @@ def main():
                 for card in lesson_cards:
                     text = card.inner_text().strip()
                     has_enabled_btn = False
-                    for btn_text in ["Practice", "Keep going"]:
+                    for btn_text in ["Practice", "Resume"]:
                         btn = card.locator(f"button:has-text('{btn_text}')").first
                         if btn.is_visible() and btn.is_enabled():
                             has_enabled_btn = True
