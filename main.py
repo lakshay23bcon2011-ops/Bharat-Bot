@@ -218,11 +218,8 @@ def main():
             logger.info("DEBUG: Checking Lesson buttons...")
             lesson_clicked = False
             
-            # Wait for lesson cards to render
-            try:
-                browser.page.wait_for_selector(".card, div.border, div.shadow-md, div.rounded-lg", timeout=10000)
-            except Exception:
-                pass
+            # Wait for lesson cards to render reliably
+            browser.page.wait_for_timeout(4000)
                 
             # Find all cards on the page
             cards = browser.page.locator(".card, div.border, div.shadow-md, div.rounded-lg").all()
