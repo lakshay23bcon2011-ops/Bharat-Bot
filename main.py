@@ -265,12 +265,12 @@ def main():
                             logger.info(f"DEBUG: Target lesson card matching '{target_prefix}' found!")
                             break
             
-            # Fallback 1: Find the first card with an enabled button
+            # Fallback 1: Find the first card with an enabled button (preferring incomplete lessons)
             if not target_card:
                 for card in lesson_cards:
                     text = card.inner_text().strip()
                     has_enabled_btn = False
-                    for btn_text in ["Practice", "Retry", "Keep going"]:
+                    for btn_text in ["Practice", "Keep going"]:
                         btn = card.locator(f"button:has-text('{btn_text}')").first
                         if btn.is_visible() and btn.is_enabled():
                             has_enabled_btn = True
