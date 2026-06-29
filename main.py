@@ -253,15 +253,29 @@ def main():
                 for card in lesson_cards:
                     text = card.inner_text().strip()
                     if text.startswith(target_prefix) or target_prefix in text:
-                        target_card = card
-                        logger.info(f"DEBUG: Target lesson card matching '{target_prefix}' found!")
-                        break
+                        # Ensure there is an enabled button to click
+                        has_enabled_btn = False
+                        for btn_text in ["Practice", "Retry", "Done", "Keep going"]:
+                            btn = card.locator(f"button:has-text('{btn_text}')").first
+                            if btn.is_visible() and btn.is_enabled():
+                                has_enabled_btn = True
+                                break
+                        if has_enabled_btn:
+                            target_card = card
+                            logger.info(f"DEBUG: Target lesson card matching '{target_prefix}' found!")
+                            break
             
-            # Fallback 1: Find the first card with "Practice" or "Retry" or "Keep going"
+            # Fallback 1: Find the first card with an enabled button
             if not target_card:
                 for card in lesson_cards:
                     text = card.inner_text().strip()
-                    if "Practice" in text or "Retry" in text or "Keep going" in text:
+                    has_enabled_btn = False
+                    for btn_text in ["Practice", "Retry", "Keep going"]:
+                        btn = card.locator(f"button:has-text('{btn_text}')").first
+                        if btn.is_visible() and btn.is_enabled():
+                            has_enabled_btn = True
+                            break
+                    if has_enabled_btn:
                         target_card = card
                         logger.info(f"DEBUG: Falling back to card: {text.splitlines()[0] if text.splitlines() else ''}")
                         break
@@ -270,7 +284,7 @@ def main():
                 # Click 'Practice', 'Retry', 'Done', or 'Keep going' button inside card
                 for btn_text in ["Practice", "Retry", "Done", "Keep going"]:
                     btn = target_card.locator(f"button:has-text('{btn_text}')").first
-                    if btn.is_visible():
+                    if btn.is_visible() and btn.is_enabled():
                         logger.info(f"DEBUG: Clicking '{btn_text}' button inside lesson card...")
                         btn.click()
                         browser.page.wait_for_load_state("load")
