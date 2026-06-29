@@ -216,18 +216,80 @@ def main():
             
             # Lesson selection
             logger.info("DEBUG: Checking Lesson buttons...")
-            if browser.element_exists(sel["lessons"]["practice_button"]):
-                robust_navigate(sel["lessons"]["practice_button"], "Lesson Practice button", use_locator_first=True)
-            elif browser.element_exists(sel["lessons"]["learn_button"]):
-                robust_navigate(sel["lessons"]["learn_button"], "Lesson Learn button", use_locator_first=True)
-            else:
-                logger.info("DEBUG: No Lesson button found! Might be out of lessons. Navigating back to FluentEdge to reset...")
-                if browser.element_exists(sel["navigation"]["sidebar_ai_fluentedge"]):
-                    browser.click(sel["navigation"]["sidebar_ai_fluentedge"], wait_for_nav=True)
+            lesson_clicked = False
+            
+            # Find all cards on the page
+            cards = browser.page.locator("div.card, div.border, div.shadow-md, div.rounded-lg").all()
+            
+            # Filter cards that actually contain lesson titles (e.g. "01.", "02.", etc.)
+            lesson_cards = []
+            for card in cards:
+                try:
+                    text = card.inner_text()
+                    lines = [l.strip() for l in text.split("\n") if l.strip()]
+                    if lines and any(lines[0].startswith(f"{i:02d}") or lines[0] == str(i) for i in range(1, 100)):
+                        lesson_cards.append(card)
+                except Exception:
+                    pass
+                    
+            logger.info(f"DEBUG: Found {len(lesson_cards)} valid lesson cards.")
+            
+            # Decide target lesson card based on completion count
+            target_prefix = None
+            if current_skill == "speaking":
+                completions_data = load_completions()
+                count = completions_data.get("speaking", 0)
+                # If we have less than 6 completions, start at Lesson 6 (requested by user)
+                if count < 6:
+                    target_prefix = "06."
                 else:
-                    browser.go_to_base()
-                browser.page.wait_for_load_state("load")
-                continue
+                    target_prefix = f"{count+1:02d}."
+            
+            target_card = None
+            if target_prefix:
+                for card in lesson_cards:
+                    text = card.inner_text().strip()
+                    if text.startswith(target_prefix) or target_prefix in text:
+                        target_card = card
+                        logger.info(f"DEBUG: Target lesson card matching '{target_prefix}' found!")
+                        break
+            
+            # Fallback 1: Find the first card with "Practice" or "Retry" or "Keep going"
+            if not target_card:
+                for card in lesson_cards:
+                    text = card.inner_text().strip()
+                    if "Practice" in text or "Retry" in text or "Keep going" in text:
+                        target_card = card
+                        logger.info(f"DEBUG: Falling back to card: {text.splitlines()[0] if text.splitlines() else ''}")
+                        break
+            
+            if target_card:
+                # Click 'Practice', 'Retry', 'Done', or 'Keep going' button inside card
+                for btn_text in ["Practice", "Retry", "Done", "Keep going"]:
+                    btn = target_card.locator(f"button:has-text('{btn_text}')").first
+                    if btn.is_visible():
+                        logger.info(f"DEBUG: Clicking '{btn_text}' button inside lesson card...")
+                        btn.click()
+                        browser.page.wait_for_load_state("load")
+                        lesson_clicked = True
+                        break
+                        
+            # Fallback 2: Global selectors
+            if not lesson_clicked:
+                if browser.element_exists(sel["lessons"]["practice_button"]):
+                    robust_navigate(sel["lessons"]["practice_button"], "Lesson Practice button", use_locator_first=True)
+                    lesson_clicked = True
+                elif browser.element_exists(sel["lessons"]["learn_button"]):
+                    robust_navigate(sel["lessons"]["learn_button"], "Lesson Learn button", use_locator_first=True)
+                    lesson_clicked = True
+                else:
+                    logger.info("DEBUG: No Lesson button found! Might be out of lessons. Navigating back to FluentEdge to reset...")
+                    if browser.element_exists(sel["navigation"]["sidebar_ai_fluentedge"]):
+                        browser.click(sel["navigation"]["sidebar_ai_fluentedge"], wait_for_nav=True)
+                    else:
+                        browser.go_to_base()
+                    browser.page.wait_for_load_state("load")
+                    continue
                 
             logger.info(f"DEBUG: URL before task loop: {browser.page.url}")
             
