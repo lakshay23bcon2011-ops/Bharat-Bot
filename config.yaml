@@ -1,6 +1,6 @@
 # ─── Browser Settings ───────────────────────────────────────────────
 browser:
-  headless: false          # true = run invisibly for max speed
+  headless: true          # true = run invisibly for max speed
   slow_mo: 0               # milliseconds between actions (0 = max speed)
   base_url: "https://corporate.bharatenglish.org"
   timeout: 30000           # max wait time for elements in milliseconds
@@ -56,7 +56,7 @@ selectors:
 
   exam:
     textarea: "textarea[placeholder*='Start writing']"
-    mic_button: "button[hint='Record']"
+    mic_button: "button[hint='Record'], button[aria-label='Start recording'], button[aria-label='Stop recording'], button[aria-label*='recording'], button[aria-label*='record']"
     check_button: "button:has-text('Check')"
     continue_button: "button:has-text('Continue'), button:has-text('Submit'), button:has-text('Next')"
     close_button: "button[aria-label='Close practice'], button[hint='Close practice']"

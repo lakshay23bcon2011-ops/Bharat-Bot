@@ -14,20 +14,26 @@ class AIAnswerer:
         logger.info(f"AIAnswerer ready. Model: {self.model}")
 
     def _call_groq(self, system_prompt: str, user_prompt: str) -> str:
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user",   "content": user_prompt}
-                ]
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"Groq API call failed: {e}")
-            return ""
+        models = [self.model, "llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"]
+        for idx, model_name in enumerate(models):
+            try:
+                response = self.client.chat.completions.create(
+                    model=model_name,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user",   "content": user_prompt}
+                    ]
+                )
+                return response.choices[0].message.content.strip()
+            except Exception as e:
+                logger.warning(f"Groq API call with model '{model_name}' failed: {e}")
+                if idx < len(models) - 1:
+                    logger.info("Retrying with fallback model...")
+                else:
+                    logger.error("All fallback models failed.")
+        return ""
 
     def answer_writing(self, prompt: str) -> str:
         system_prompt = "You are an expert English writer. Write clear, formal but natural academic English responses. Use proper paragraphs. No headings or bullet points. 150-250 words."
@@ -36,28 +42,19 @@ class AIAnswerer:
 
     def answer_mcq(self, question: str, options: list[str], context: str = "") -> str:
         options_text = "\n".join([f"  {i+1}. {opt}" for i, opt in enumerate(options)])
-        context_section = f"\n\nContext/Passage:\n{context}\n" if context else ""
-        system_prompt = "Reply with ONLY the exact text of the correct option — nothing else. Do not include the option number."
-        user_prompt = f"Question: {question}{context_section}\nOptions:\n{options_text}\n\nWhich option is correct?"
+        context_section = f"\n\nContext/Passage/Audio Transcript:\n{context}\n" if context else ""
+        system_prompt = (
+            "You are an expert English language examiner scoring 100% on a professional English proficiency test.\n\n"
+            "Task:\n"
+            "1. Read the Context/Passage/Audio Transcript and the Question carefully.\n"
+            "2. Analyze and think step-by-step about which option(s) are correct. Some questions may require selecting MULTIPLE options if the question asks for it (e.g., 'Select two...', 'Which of the following are...').\n"
+            "3. For EACH correct option, output its option index/number wrapped in <option_number>...</option_number> tags (e.g., if option 2 and 4 are correct, output <option_number>2</option_number> and <option_number>4</option_number>).\n"
+            "4. For EACH correct option, also output its exact text wrapped in <option_text>...</option_text> tags.\n\n"
+            "Be extremely precise. Rely ONLY on the provided context."
+        )
+        user_prompt = f"Question: {question}{context_section}\nOptions:\n{options_text}\n\nSelect the correct option(s) and wrap them in the requested tags."
         answer = self._call_groq(system_prompt, user_prompt)
-        
-        # Clean the answer
-        clean_answer = answer.strip().lower()
-        if clean_answer.endswith('.'): clean_answer = clean_answer[:-1]
-        
-        # Try exact match or partial match
-        for option in options:
-            if clean_answer == option.lower() or clean_answer in option.lower():
-                return option
-        
-        # Try to extract number if AI returned something like "3. Paris" or just "3"
-        import re
-        match = re.search(r'^\d+', clean_answer)
-        if match:
-            idx = int(match.group()) - 1
-            if 0 <= idx < len(options):
-                return options[idx]
-                
+        logger.info(f"AI MCQ Raw Response:\n{answer}")
         return answer
 
     def generate_speech_text(self, prompt: str) -> str:

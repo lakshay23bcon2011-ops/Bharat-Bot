@@ -19,7 +19,7 @@ class BrowserController:
     def start(self):
         logger.info("Starting browser...")
         self._playwright = sync_playwright().start()
-        launch_args = ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]
+        launch_args = ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--mute-audio"]
         
         # Check for virtual mic file
         mic_file = self.browser_cfg.get("virtual_mic_file")
@@ -34,6 +34,19 @@ class BrowserController:
         )
         context = self._browser.new_context(accept_downloads=True)
         self.page = context.new_page()
+        self.page.add_init_script("""
+            window.injectedAudioStream = null;
+            if (navigator.mediaDevices) {
+                const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+                navigator.mediaDevices.getUserMedia = async function(constraints) {
+                    if (constraints && constraints.audio && window.injectedAudioStream) {
+                        console.log("Injected custom audio stream into getUserMedia!");
+                        return window.injectedAudioStream;
+                    }
+                    return originalGetUserMedia(constraints);
+                };
+            }
+        """)
         self.page.set_default_timeout(self.browser_cfg.get("timeout", 30000))
         logger.info("Browser started successfully.")
 
@@ -46,7 +59,16 @@ class BrowserController:
 
     def go_to(self, url: str):
         logger.info(f"Navigating to: {url}")
-        self.page.goto(url, wait_until="networkidle")
+        for attempt in range(3):
+            try:
+                self.page.goto(url, wait_until="commit")
+                return
+            except Exception as e:
+                logger.warning(f"Navigation attempt {attempt+1} failed: {e}")
+                if attempt < 2:
+                    self.page.wait_for_timeout(3000)
+                else:
+                    raise e
 
     def go_to_base(self):
         self.go_to(self.browser_cfg.get("base_url", ""))
@@ -56,17 +78,25 @@ class BrowserController:
         try:
             self.go_to_base()
             login_sel = self.selectors.get("login", {})
+            self.page.wait_for_selector(login_sel["username_input"], timeout=30000)
             self.page.fill(login_sel["username_input"], self.creds["username"])
             self.page.fill(login_sel["password_input"], self.creds["password"])
             self.page.click(login_sel["signin_button"])
-            self.page.wait_for_load_state("networkidle")
+            
+            # Wait for either URL to change to practice or home (success) or error selector to appear
             error_sel = login_sel.get("error_message", ".error-message")
-            if self.page.is_visible(error_sel):
-                error_text = self.page.inner_text(error_sel)
-                logger.error(f"Login failed. Error: {error_text}")
-                return False
-            logger.info("Login successful!")
-            return True
+            for _ in range(30):
+                if "practice" in self.page.url or "home" in self.page.url:
+                    logger.info("Login successful!")
+                    return True
+                if self.page.is_visible(error_sel):
+                    error_text = self.page.inner_text(error_sel)
+                    logger.error(f"Login failed. Error: {error_text}")
+                    return False
+                self.page.wait_for_timeout(500)
+                
+            logger.error("Login timed out. Current URL: " + self.page.url)
+            return False
         except Exception as e:
             logger.error(f"Login exception: {e}")
             return False
@@ -75,7 +105,7 @@ class BrowserController:
         logger.debug(f"Clicking: {selector}")
         self.page.wait_for_selector(selector, state="visible")
         self.page.click(selector)
-        if wait_for_nav: self.page.wait_for_load_state("networkidle")
+        if wait_for_nav: self.page.wait_for_load_state("load")
 
     def fill_text(self, selector: str, text: str):
         logger.debug(f"Filling text into: {selector}")
@@ -143,56 +173,120 @@ class BrowserController:
         self._intercepted_audio_url = None
 
     def find_and_click_option(self, target_text: str) -> bool:
+        import re
         import difflib
         option_selectors = self.selectors.get("exam", {}).get("option_selectors", [".option", "div[role='button']", ".choice"])
         
-        target_clean = " ".join(target_text.strip().lower().split())
-        best_match = None
-        best_ratio = 0.0
-        best_element = None
-        
+        # Resolve all matching elements for option selectors on the page
+        options_elements = []
         for sel in option_selectors:
             elements = self.page.query_selector_all(sel)
-            for el in elements:
-                el_text = " ".join(el.inner_text().strip().lower().split())
-                
-                # Check exact or substring match first
-                if target_clean in el_text or el_text in target_clean:
-                    best_ratio = 1.0
-                    best_element = el
-                    best_match = el.inner_text().strip()
-                    break
-                    
-                # Otherwise, calculate similarity ratio
-                ratio = difflib.SequenceMatcher(None, target_clean, el_text).ratio()
-                if ratio > best_ratio:
-                    best_ratio = ratio
-                    best_element = el
-                    best_match = el.inner_text().strip()
-            
-            if best_ratio == 1.0:
+            if elements:
+                options_elements = elements
                 break
                 
-        # If we have a decent match (> 50% similarity)
+        if not options_elements:
+            logger.warning("No option elements found on the page.")
+            return False
+            
+        clicked_any = False
+        
+        # 1. Parse all <option_number> tags
+        num_matches = re.findall(r'<option_number>\s*(\d+)\s*</option_number>', target_text, re.IGNORECASE)
+        if num_matches:
+            for num_str in num_matches:
+                idx = int(num_str) - 1
+                if 0 <= idx < len(options_elements):
+                    try:
+                        logger.info(f"Clicking option index {idx+1} based on <option_number> tag: '{options_elements[idx].inner_text().strip()}'")
+                        options_elements[idx].click()
+                        clicked_any = True
+                    except Exception as e:
+                        logger.error(f"Failed to click option index {idx+1}: {e}")
+            if clicked_any:
+                return True
+                
+        # 2. Parse all <option_text> tags
+        text_matches = re.findall(r'<option_text>(.*?)</option_text>', target_text, re.IGNORECASE | re.DOTALL)
+        if text_matches:
+            for text_target in text_matches:
+                target_clean = " ".join(text_target.strip().lower().split())
+                best_element = None
+                best_ratio = 0.0
+                best_match_text = ""
+                
+                for idx, el in enumerate(options_elements):
+                    el_text = " ".join(el.inner_text().strip().lower().split())
+                    if target_clean in el_text or el_text in target_clean:
+                        best_ratio = 1.0
+                        best_element = el
+                        best_match_text = el.inner_text().strip()
+                        break
+                    
+                    ratio = difflib.SequenceMatcher(None, target_clean, el_text).ratio()
+                    if ratio > best_ratio:
+                        best_ratio = ratio
+                        best_element = el
+                        best_match_text = el.inner_text().strip()
+                        
+                if best_element and best_ratio > 0.5:
+                    try:
+                        logger.info(f"Clicking matched option (ratio {best_ratio:.2f}) from <option_text> tag: '{best_match_text}'")
+                        best_element.click()
+                        clicked_any = True
+                    except Exception as e:
+                        logger.error(f"Failed to click matched option: {e}")
+            if clicked_any:
+                return True
+                
+        # 3. Fallback: Parse index numbers from the raw text (e.g. if the AI returned "Option 3" or just "3")
+        clean_response = target_text.strip().lower()
+        num_match = re.search(r'\b\d+\b', clean_response)
+        if num_match:
+            idx = int(num_match.group()) - 1
+            if 0 <= idx < len(options_elements):
+                try:
+                    logger.info(f"Fallback: Clicking option index {idx+1} based on number in response: '{options_elements[idx].inner_text().strip()}'")
+                    options_elements[idx].click()
+                    return True
+                except Exception:
+                    pass
+
+        # 4. Fallback: Try to match the raw response text against the option texts
+        target_clean = " ".join(clean_response.split())
+        best_element = None
+        best_ratio = 0.0
+        best_match_text = ""
+        for el in options_elements:
+            el_text = " ".join(el.inner_text().strip().lower().split())
+            if target_clean in el_text or el_text in target_clean:
+                best_ratio = 1.0
+                best_element = el
+                best_match_text = el.inner_text().strip()
+                break
+            
+            ratio = difflib.SequenceMatcher(None, target_clean, el_text).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_element = el
+                best_match_text = el.inner_text().strip()
+                
         if best_element and best_ratio > 0.5:
             try:
-                logger.info(f"Found matching option (ratio {best_ratio:.2f}): '{best_match}' — clicking it.")
+                logger.info(f"Fallback: Clicking matched option (ratio {best_ratio:.2f}) from raw response: '{best_match_text}'")
                 best_element.click()
                 return True
             except Exception:
                 pass
                 
-        # Fallback: Just click the first option so we don't get permanently stuck
-        for sel in option_selectors:
-            elements = self.page.query_selector_all(sel)
-            if elements:
-                try:
-                    logger.warning(f"No good match found for '{target_text}'. Clicking first option as fallback.")
-                    elements[0].click()
-                    return True
-                except Exception:
-                    pass
-                    
+        # 5. Ultimate Fallback: Just click the first option so we don't get stuck
+        try:
+            logger.warning(f"No match found for response. Clicking first option as ultimate fallback.")
+            options_elements[0].click()
+            return True
+        except Exception as e:
+            logger.error(f"Ultimate fallback click failed: {e}")
+            
         return False
 
     def get_writing_prompt(self) -> str:
