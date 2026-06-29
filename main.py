@@ -25,7 +25,7 @@ def load_config(path: str = "config.yaml") -> dict:
 
 def detect_task_type(browser):
     # Wait for the page to render ANY task element before checking specifics
-    task_indicator = "textarea, button[aria-label='Play audio'], button[hint='Play audio'], audio, div.cursor-pointer.shadow-md, .option, .choice, div[role='button'].answer, li.answer, button[aria-label='Record'], button[hint='Record'], .mic-button, button[aria-label*='recording'], button[aria-label*='record']"
+    task_indicator = "textarea, button[aria-label='Play audio'], button[hint='Play audio'], audio, div.cursor-pointer, div.cursor-pointer.shadow-md, .option, .choice, div[role='button'].answer, li.answer, button[aria-label='Record'], button[hint='Record'], .mic-button, button[aria-label*='recording'], button[aria-label*='record']"
     if not browser.element_exists(task_indicator, timeout=10000):
         return "unknown"
         
@@ -45,7 +45,7 @@ def detect_task_type(browser):
        browser.element_exists("button[aria-label='Play']", timeout=500): 
         return "listening"
     
-    for s in ["div.cursor-pointer.shadow-md", ".option", ".choice", "div[role='button'].answer", "li.answer"]:
+    for s in ["div.cursor-pointer", "div.cursor-pointer.shadow-md", ".option", ".choice", "div[role='button'].answer", "li.answer"]:
         if browser.element_exists(s, timeout=500): 
             return "reading"
         
@@ -314,6 +314,11 @@ def main():
                     # we should wait and retry rather than immediately assuming we finished.
                     if "practice/exam" in browser.page.url:
                         logger.warning("Still in exam page but task type is unknown. Waiting 5s and retrying...")
+                        try:
+                            browser.page.screenshot(path="unknown_task.png")
+                            logger.info("Saved unknown task screenshot to unknown_task.png")
+                        except Exception as e:
+                            logger.error(f"Failed to capture unknown screenshot: {e}")
                         browser.page.wait_for_timeout(5000)
                         continue
 

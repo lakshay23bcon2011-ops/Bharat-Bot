@@ -298,13 +298,13 @@ class BrowserController:
 
     def get_reading_content(self) -> dict:
         result = {"passage": "", "question": "", "options": []}
-        passage_selectors = [".passage", ".reading-text", ".article-text", "article", ".content-body"]
+        passage_selectors = ["div.overflow-y-auto.max-h-\\[58vh\\]", "div.text-sm.leading-relaxed", ".passage", ".reading-text", ".article-text", "article", ".content-body"]
         for sel in passage_selectors:
             text = self.get_text(sel)
             if text:
                 result["passage"] = text
                 break
-        question_selectors = ["p.text-base.font-medium", ".question", ".question-text", "h4.q-text", ".quiz-question"]
+        question_selectors = ["div.font-medium.leading-relaxed", "div.text-base.font-medium", "p.text-base.font-medium", ".question", ".question-text", "h4.q-text", ".quiz-question"]
         for sel in question_selectors:
             text = self.get_text(sel)
             if text:

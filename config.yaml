@@ -63,6 +63,7 @@ selectors:
     exit_button: "button:has-text('Exit')"
     play_audio: "button[aria-label='Play audio'], button[hint='Play audio']"
     option_selectors:
+      - "div.cursor-pointer"
       - "div.cursor-pointer.shadow-md"
       - ".option"
       - "div[role='button']"
