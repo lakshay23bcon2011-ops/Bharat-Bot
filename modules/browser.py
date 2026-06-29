@@ -85,7 +85,7 @@ class BrowserController:
             
             # Wait for either URL to change to practice or home (success) or error selector to appear
             error_sel = login_sel.get("error_message", ".error-message")
-            for _ in range(30):
+            for _ in range(90):
                 if "practice" in self.page.url or "home" in self.page.url:
                     logger.info("Login successful!")
                     return True
