@@ -221,54 +221,37 @@ def main():
             # Wait for lesson cards to render reliably
             browser.page.wait_for_timeout(4000)
                 
-            # Find all cards on the page
-            cards = browser.page.locator(".card, div.border, div.shadow-md, div.rounded-lg").all()
+            # Find all cards on the page using exact card class selector
+            cards = browser.page.locator(".card").all()
+            logger.info(f"DEBUG: Found {len(cards)} valid lesson cards.")
             
-            # Filter cards that actually contain lesson titles (e.g. "01.", "02.", etc.)
-            lesson_cards = []
-            for card in cards:
-                try:
-                    text = card.inner_text()
-                    lines = [l.strip() for l in text.split("\n") if l.strip()]
-                    if lines and any(lines[0].startswith(f"{i:02d}") or lines[0] == str(i) for i in range(1, 100)):
-                        lesson_cards.append(card)
-                except Exception:
-                    pass
-                    
-            logger.info(f"DEBUG: Found {len(lesson_cards)} valid lesson cards.")
-            
-            # Decide target lesson card based on completion count
-            target_prefix = None
-            if current_skill == "speaking":
+            # Determine target card index
+            target_index = None
+            if current_skill:
                 completions_data = load_completions()
-                count = completions_data.get("speaking", 0)
-                # If we have less than 6 completions, start at Lesson 6 (requested by user)
-                if count < 6:
-                    target_prefix = "06."
+                count = completions_data.get(current_skill, 0)
+                if current_skill == "speaking":
+                    target_index = max(5, count) # Force starting at Lesson 6 (index 5)
                 else:
-                    target_prefix = f"{count+1:02d}."
-            
+                    target_index = count
+                    
             target_card = None
-            if target_prefix:
-                for card in lesson_cards:
-                    text = card.inner_text().strip()
-                    if text.startswith(target_prefix) or target_prefix in text:
-                        # Ensure there is an enabled button to click
-                        has_enabled_btn = False
-                        for btn_text in ["Practice", "Retry", "Done", "Keep going"]:
-                            btn = card.locator(f"button:has-text('{btn_text}')").first
-                            if btn.is_visible() and btn.is_enabled():
-                                has_enabled_btn = True
-                                break
-                        if has_enabled_btn:
-                            target_card = card
-                            logger.info(f"DEBUG: Target lesson card matching '{target_prefix}' found!")
-                            break
+            if target_index is not None and 0 <= target_index < len(cards):
+                card = cards[target_index]
+                # Check if it has an enabled button we want to click
+                has_enabled_btn = False
+                for btn_text in ["Practice", "Resume"]:
+                    btn = card.locator(f"button:has-text('{btn_text}')").first
+                    if btn.is_visible() and btn.is_enabled():
+                        has_enabled_btn = True
+                        break
+                if has_enabled_btn:
+                    target_card = card
+                    logger.info(f"DEBUG: Target lesson card for Lesson {target_index+1} selected.")
             
-            # Fallback 1: Find the first card with an enabled button (preferring incomplete lessons)
+            # Fallback 1: Find the first card with an enabled Practice or Resume button
             if not target_card:
-                for card in lesson_cards:
-                    text = card.inner_text().strip()
+                for idx, card in enumerate(cards):
                     has_enabled_btn = False
                     for btn_text in ["Practice", "Resume"]:
                         btn = card.locator(f"button:has-text('{btn_text}')").first
@@ -277,7 +260,7 @@ def main():
                             break
                     if has_enabled_btn:
                         target_card = card
-                        logger.info(f"DEBUG: Falling back to card: {text.splitlines()[0] if text.splitlines() else ''}")
+                        logger.info(f"DEBUG: Falling back to first available incomplete card at Lesson {idx+1}")
                         break
             
             if target_card:
