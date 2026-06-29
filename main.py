@@ -220,12 +220,12 @@ def main():
             
             # Wait for lesson cards to render
             try:
-                browser.page.wait_for_selector("div.card, div.border, div.shadow-md, div.rounded-lg", timeout=10000)
+                browser.page.wait_for_selector(".card, div.border, div.shadow-md, div.rounded-lg", timeout=10000)
             except Exception:
                 pass
                 
             # Find all cards on the page
-            cards = browser.page.locator("div.card, div.border, div.shadow-md, div.rounded-lg").all()
+            cards = browser.page.locator(".card, div.border, div.shadow-md, div.rounded-lg").all()
             
             # Filter cards that actually contain lesson titles (e.g. "01.", "02.", etc.)
             lesson_cards = []
